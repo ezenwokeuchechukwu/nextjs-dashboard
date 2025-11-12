@@ -1,123 +1,123 @@
 // app/lib/data.ts
 import clientPromise from '@/app/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, Filter } from 'mongodb';
 
 const ITEMS_PER_PAGE = 10;
+
+// --------------------------
+// Types
+// --------------------------
+export type Invoice = {
+  _id: ObjectId;
+  customer_name: string;
+  amount: number;
+  createdAt: Date;
+  [key: string]: any;
+};
+
+export type Customer = {
+  _id: ObjectId;
+  name: string;
+  email?: string;
+  phone?: string;
+  [key: string]: any;
+};
 
 // --------------------------
 // Invoices
 // --------------------------
 
-// Fetch invoices for a given page and optional search query
-export async function fetchInvoices(query = '', page = 1) {
+export async function fetchInvoices(query = '', page = 1): Promise<Invoice[]> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  const filter = query
+  const filter: Filter<Invoice> = query
     ? { customer_name: { $regex: query, $options: 'i' } }
     : {};
 
-  const invoices = await db
-    .collection('invoices')
+  return await db
+    .collection<Invoice>('invoices')
     .find(filter)
     .skip((page - 1) * ITEMS_PER_PAGE)
     .limit(ITEMS_PER_PAGE)
     .toArray();
-
-  return invoices;
 }
 
-// Fetch total pages for pagination based on search query
-export async function fetchInvoicesPages(query = '') {
+export async function fetchInvoicesPages(query = ''): Promise<number> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  const filter = query
+  const filter: Filter<Invoice> = query
     ? { customer_name: { $regex: query, $options: 'i' } }
     : {};
 
-  const totalCount = await db.collection('invoices').countDocuments(filter);
+  const totalCount = await db.collection<Invoice>('invoices').countDocuments(filter);
   return Math.ceil(totalCount / ITEMS_PER_PAGE);
 }
 
-// Fetch a single invoice by ID
-export async function fetchInvoiceById(id: string) {
+export async function fetchInvoiceById(id: string): Promise<Invoice | null> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  return await db.collection('invoices').findOne({ _id: new ObjectId(id) });
+  return await db.collection<Invoice>('invoices').findOne({ _id: new ObjectId(id) });
 }
 
-// Fetch filtered invoices for table (optional extra filtering logic)
-export async function fetchFilteredInvoices(filter: any = {}, page = 1) {
+export async function fetchFilteredInvoices(filter: Filter<Invoice> = {}, page = 1): Promise<Invoice[]> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  const invoices = await db
-    .collection('invoices')
+  return await db
+    .collection<Invoice>('invoices')
     .find(filter)
     .skip((page - 1) * ITEMS_PER_PAGE)
     .limit(ITEMS_PER_PAGE)
     .toArray();
-
-  return invoices;
 }
 
-// Fetch latest invoices
-export async function fetchLatestInvoices(limit = 5) {
+export async function fetchLatestInvoices(limit = 5): Promise<Invoice[]> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  return await db.collection('invoices')
+  return await db.collection<Invoice>('invoices')
     .find({})
     .sort({ createdAt: -1 })
     .limit(limit)
     .toArray();
 }
 
-// Fetch revenue (for dashboard chart)
-export async function fetchRevenue() {
+export async function fetchRevenue(): Promise<{ _id: number; total: number }[]> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  const revenueAgg = await db.collection('invoices').aggregate([
-    {
-      $group: {
-        _id: { $month: "$createdAt" },
-        total: { $sum: "$amount" }
-      }
-    }
+  return await db.collection<Invoice>('invoices').aggregate<{ _id: number; total: number }>([
+    { $group: { _id: { $month: "$createdAt" }, total: { $sum: "$amount" } } }
   ]).toArray();
-
-  return revenueAgg;
 }
 
 // --------------------------
 // Customers
 // --------------------------
 
-// Fetch all customers
-export async function fetchCustomers() {
+export async function fetchCustomers(): Promise<Customer[]> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  return await db.collection('customers').find({}).toArray();
+  return await db.collection<Customer>('customers').find({}).toArray();
 }
 
 // --------------------------
 // Dashboard cards
 // --------------------------
 
-// Fetch data for dashboard cards
-export async function fetchCardData() {
+export async function fetchCardData(): Promise<{ totalInvoices: number; totalRevenue: number }> {
   const client = await clientPromise;
-  const db = client.db("nextDB");
+  const db = client.db("nextDB"); // <-- fixed
 
-  const totalInvoices = await db.collection('invoices').countDocuments();
-  const totalRevenueAgg = await db.collection('invoices').aggregate([
+  const totalInvoices = await db.collection<Invoice>('invoices').countDocuments();
+  const totalRevenueAgg = await db.collection<Invoice>('invoices').aggregate([
     { $group: { _id: null, total: { $sum: "$amount" } } }
   ]).toArray();
-  const totalRevenue = totalRevenueAgg[0]?.total || 0;
 
+  const totalRevenue = totalRevenueAgg[0]?.total || 0;
   return { totalInvoices, totalRevenue };
 }
