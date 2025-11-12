@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { Client } from 'pg';
-import { Pool } from 'pg';
 
 
 export async function GET() {
