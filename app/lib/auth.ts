@@ -1,35 +1,41 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
-import clientPromise from "./mongodb";
+import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
+import { z } from "zod";
+import clientPromise from "@/app/lib/mongodb";
 
 export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
   providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
+    Credentials({
       async authorize(credentials) {
-        if (!credentials) return null;
+        const parsed = z
+          .object({
+            email: z.string().email(),
+            password: z.string().min(6),
+          })
+          .safeParse(credentials);
+
+        if (!parsed.success) return null;
+        const { email, password } = parsed.data;
 
         const client = await clientPromise;
-        const db = client.db();
-        const user = await db.collection("users").findOne({ email: credentials.email });
+        const db = client.db("users_db");
+        const user = await db.collection("users").findOne({ email });
 
         if (!user) return null;
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) return null;
+        const passwordsMatch = await bcrypt.compare(password, user.password);
+        if (!passwordsMatch) return null;
 
-        return { id: user._id, email: user.email, name: user.name };
+        // ✅ Convert ObjectId to string here
+        return {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+        };
       },
     }),
   ],
-  session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
 };
 
