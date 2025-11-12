@@ -1,23 +1,22 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI!;
+declare global {
+  // Allow global caching for hot reload in dev
+  // eslint-disable-next-line no-var
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
+
+const uri = process.env.MONGODB_URI as string;
+const options = {};
+
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Please add your Mongo URI to .env.local');
+if (!global._mongoClientPromise) {
+  client = new MongoClient(uri, options);
+  global._mongoClientPromise = client.connect();
 }
 
-if (process.env.NODE_ENV === 'development') {
-  // Avoid creating new clients on hot reloads in dev mode
-  if (!(global as any)._mongoClientPromise) {
-    client = new MongoClient(uri);
-    (global as any)._mongoClientPromise = client.connect();
-  }
-  clientPromise = (global as any)._mongoClientPromise;
-} else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
-}
+clientPromise = global._mongoClientPromise;
 
 export default clientPromise;
