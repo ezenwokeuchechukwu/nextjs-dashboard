@@ -1,39 +1,16 @@
-import NextAuth from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
-import bcrypt from 'bcrypt';
-import { z } from 'zod';
-import clientPromise from '@/app/lib/mongodb';
+import { NextResponse } from "next/server";
+import clientPromise from "@/app/lib/mongodb";
 
-export const authOptions = {
-  providers: [
-    Credentials({
-      async authorize(credentials) {
-        const parsed = z
-          .object({
-            email: z.string().email(),
-            password: z.string().min(6),
-          })
-          .safeParse(credentials);
+export async function GET() {
+  const client = await clientPromise;
+  const db = client.db("users_db");
 
-        if (!parsed.success) return null;
+  // Example seeding data
+  await db.collection("users").insertOne({
+    name: "Admin User",
+    email: "admin@example.com",
+    password: "hashed_password_here",
+  });
 
-        const { email, password } = parsed.data;
-
-        const client = await clientPromise;
-        const db = client.db('users_db'); // You can name your DB anything
-        const user = await db.collection('users').findOne({ email });
-
-        if (!user) return null;
-
-        const passwordsMatch = await bcrypt.compare(password, user.password);
-        if (!passwordsMatch) return null;
-
-        return { id: user._id.toString(), name: user.name, email: user.email };
-      },
-    }),
-  ],
-  secret: process.env.NEXTAUTH_SECRET,
-};
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+  return NextResponse.json({ message: "Database seeded successfully" });
+}
